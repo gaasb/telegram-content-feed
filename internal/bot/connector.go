@@ -7,7 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"gopkg.in/telebot.v3"
 	"log"
-	"net/http"
+	"time"
 )
 
 var (
@@ -30,7 +30,7 @@ func (t *MongoImpl) Set(envValue string) {
 	t.Value = client
 }
 func (t *TelegramImpl) Set(envValue string) {
-	client, err := telebot.NewBot(telebot.Settings{Token: envValue, Client: http.DefaultClient})
+	client, err := telebot.NewBot(telebot.Settings{Token: envValue, Poller: &telebot.LongPoller{Timeout: time.Second * 5}})
 	if err != nil {
 		log.Fatalln(err)
 		return

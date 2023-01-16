@@ -1,7 +1,8 @@
 package bot
 
 var (
-// handler
+	activeEvents map[string]string
+	// handler
 )
 
 func init() {

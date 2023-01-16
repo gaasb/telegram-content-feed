@@ -38,6 +38,9 @@ func NewUtilities[T any, E any](database *Client[T], telegram *Client[E]) *Utili
 		BotClient:      *telegram.Value,
 	}
 }
+func GetEnv(value string) string {
+	return dotenv[value]
+}
 
 func init() {
 	env, err := godotenv.Read(ENV_FILE)

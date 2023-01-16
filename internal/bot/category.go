@@ -8,10 +8,6 @@ type Category struct {
 	Period interface{}
 }
 
-//type Category[T comparable] struct {
-//	Period interface{}
-//}
-
 func (c *Category) Append(name string) {
 
 }
