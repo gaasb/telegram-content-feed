@@ -38,6 +38,7 @@ func Setup() {
 	clients.BotClient.Handle(OnReviewMediaContent())
 	clients.BotClient.Handle(OnAcceptMediaButton())
 	clients.BotClient.Handle(OnDismissMediaButton())
+	clients.BotClient.Handle(OnRefreshButton())
 
 	clients.BotClient.Start()
 }

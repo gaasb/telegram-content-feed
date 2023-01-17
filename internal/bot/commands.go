@@ -16,6 +16,7 @@ const (
 	CreateEventCommand Command = "/create_event"
 	Dice               Command = "/dice"
 	ReviewMediaContent         = "/start_review"
+	AddTag                     = "/add_tag"
 )
 const (
 	UpdateTagQuery Query = "update_tag"
@@ -28,10 +29,16 @@ var cmd map[Command]func() (interface{}, telebot.HandlerFunc)
 var (
 	selector = &telebot.ReplyMarkup{}
 
+	acceptBtn  = selector.Data("✅ Accept", "accept", AcceptMedia)
 	refreshBtn = selector.Data("🔃 Refresh", "refresh", "refresh_media")
-	acceptBtn  = selector.Data("✔️ Accept", "accept", AcceptMedia)
 	dismissBtn = selector.Data("❌ Dismiss", "dismiss", DismissMedia)
 )
+
+func init() {
+	selector.Inline(selector.Row(acceptBtn, refreshBtn, dismissBtn))
+	//selector.Split(3, selector.Row(acceptBtn, refreshBtn, dismissBtn))
+	//selector.Split(8, selector.Row(refreshBtn))
+}
 
 func OnDice() (interface{}, telebot.HandlerFunc) {
 	var f = func(ctx telebot.Context) error {
@@ -52,21 +59,21 @@ func OnDice() (interface{}, telebot.HandlerFunc) {
 }
 
 func OnReviewMediaContent() (interface{}, telebot.HandlerFunc) {
-	selector.Inline(selector.Row(acceptBtn, refreshBtn, dismissBtn))
 	var fun = func(ctx telebot.Context) error {
+		var er error
 		if ok := FindAllMedia(); ok != nil && len(ok) > 0 {
-			var er error
 			for _, i := range ok {
-				//acceptBtn.InlineQuery += i.UniqueID
-				//acceptBtn.InlineQuery += i.UniqueID
 				if _, err := ctx.Bot().Copy(ctx.Sender(), i, selector); err != nil {
 					_ = RemoveMediaByID(i.UniqueID) //TODO ERROR HANDLE
 					er = err
+				} else {
+					return nil
 				}
+
 			}
-			return er
 		}
-		return nil
+		ctx.Send("No Media in Database")
+		return er
 	}
 	return ReviewMediaContent, fun
 }
@@ -75,15 +82,20 @@ func OnMedia() (interface{}, telebot.HandlerFunc) {
 	var fun = func(ctx telebot.Context) error {
 		var (
 			chatID, messageID = ctx.Message().MessageSig()
-			uniqueID          = ctx.Message().Photo.UniqueID
+			uniqueID          = ctx.Message().Photo.File.UniqueID
 			fileID            = ctx.Message().Photo.File.FileID
 			msg               = &MediaMessage{uniqueID, chatID, messageID, fileID}
 		)
+		replyErr := ctx.Reply("✅: Ok!")
+		if replyErr != nil {
+			ctx.Send("🔴: Not Found, file have been removed!")
+			return replyErr
+		}
 		if err := AddMedia(msg); err != nil {
 			ctx.Send("⛔: File is already in database!")
+
 			return err
 		}
-		ctx.Send("✅: Ok!")
 		return nil
 	}
 	return MEDIA_TYPE_BY_DEFAULT, fun
@@ -92,34 +104,72 @@ func OnAcceptMediaButton() (interface{}, telebot.HandlerFunc) {
 	var fun = func(ctx telebot.Context) error {
 		var (
 			chatID, messageID = ctx.Message().MessageSig()
-			uniqueID          = ctx.Message().Photo.UniqueID
+			uniqueID          = ctx.Message().Photo.File.UniqueID
 			fileID            = ctx.Message().Photo.File.FileID
 			msg               = &MediaMessage{uniqueID, chatID, messageID, fileID}
 		)
-		if dbErr := AddMediaToFeed(msg); dbErr != nil {
-			emsg := ctx.Message().Photo
-			//emsg.File.FileID = ""
-			emsg.Caption = "TEST"
-			emsg.Height = 0
-			emsg.Width = 0
-			fmt.Println(ctx.Edit(emsg, selector), emsg.File)
-			return dbErr
+		if dbErr := FindMediaById(msg.UniqueID); dbErr != nil {
+			updateInvalidMediaPost(ctx)
+			fmt.Println("Already in Feed")
+			return nil
 		}
-		_, err := ctx.Bot().Copy(channel, ctx.Message()) //TODO SAVE MESSAGE TO DB FEED COLLECTION
+		_, err := ctx.Bot().Copy(channel, msg)
 		if err != nil {
 			return err
 		}
-		RemoveMediaByID(ctx.Message().Photo.UniqueID)
-		ctx.Delete()
+		RemoveMediaByID(msg.UniqueID)
+		AddMediaToFeed(msg)
+		updateInvalidMediaPost(ctx)
+
+		//ctx.Delete()
 		return nil
 	}
 	return &acceptBtn, fun
 }
 func OnDismissMediaButton() (interface{}, telebot.HandlerFunc) {
 	var fun = func(ctx telebot.Context) error {
-		RemoveMediaByID(ctx.Message().Photo.UniqueID)
-		ctx.Delete()
+		//RemoveMediaByID(ctx.Message().Photo.File.UniqueID)
+		//ctx.Delete()
+		updateInvalidMediaPost(ctx)
 		return nil
 	}
 	return &dismissBtn, fun
+}
+func OnAddTagCommand() (interface{}, telebot.HandlerFunc) {
+	return AddTag, func(context telebot.Context) error {
+
+		return nil
+	}
+}
+func OnRefreshButton() (interface{}, telebot.HandlerFunc) {
+	return &refreshBtn, func(ctx telebot.Context) error {
+		_, err := ctx.Bot().EditMedia(ctx.Message(), &telebot.Photo{
+			File: telebot.File{FileID: "AgACAgIAAxkBAAICRmPGxVNHd5bgb0Q_M5kxw5x07tvnAAKjxDEbw74wSkJVI1oGX0l2AQADAgADeQADLQQ",
+				UniqueID: "AQADo8QxG8O-MEp-"},
+			Width:   0,
+			Height:  0,
+			Caption: "test",
+		})
+		fmt.Println(err)
+		return nil
+	}
+}
+
+func updateInvalidMediaPost(ctx telebot.Context) {
+	RemoveMediaByID(ctx.Message().Photo.File.UniqueID)
+	refreshMedia := FindFirstMedia()
+
+	if refreshMedia == nil {
+		ctx.Delete()
+		ctx.Send("🤷 Видимо на этом всё...🚩\nПопробуй обновить!\t" + ReviewMediaContent)
+		return
+	}
+	// <- TODO get first media from review
+	//🤷 На этом всё, приходи ещё...🚩
+	ctx.Bot().EditMedia(ctx.Message(), &telebot.Photo{
+		Caption: "PRESSED",
+		File: telebot.File{
+			FileID:   refreshMedia.FileID,
+			UniqueID: refreshMedia.UniqueID,
+		}}, selector)
 }

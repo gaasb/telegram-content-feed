@@ -21,11 +21,13 @@ var (
 	database *mongo.Database
 )
 
-func GetById() {
-	var result interface{}
-	entities, _ := database.Collection(FEED_COLLECTION).Find(context.TODO(), bson.D{})
-	entities.All(context.TODO(), &result)
-	fmt.Println(result)
+func FindMediaById(id interface{}) *MediaMessage {
+	var result *MediaMessage
+	err := database.Collection(FEED_COLLECTION).FindOne(context.TODO(), bson.D{{"_id", id}}).Decode(&result)
+	if err != nil {
+		return nil
+	}
+	return result
 }
 func AddMedia(msg interface{}) error {
 	//database.Aggregate() TODO CHECK IS IN FEED AND media_for_review COLLECTION!
@@ -34,7 +36,14 @@ func AddMedia(msg interface{}) error {
 }
 func AddMediaToFeed(msg interface{}) error {
 	_, err := database.Collection(FEED_COLLECTION).InsertOne(context.TODO(), msg)
+	fmt.Println(err)
 	return err
+}
+func FindFirstMedia() *MediaMessage {
+	var res *MediaMessage
+	_ = database.Collection(MEDIA_FOR_REVIEW_COLLECTION).FindOne(context.TODO(), bson.D{}).Decode(&res)
+	return res
+
 }
 func FindAllMedia() []*MediaMessage {
 	var res []*MediaMessage
