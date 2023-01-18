@@ -34,6 +34,8 @@ var (
 	dismissBtn = selector.Data("❌ Dismiss", "dismiss", DismissMedia)
 )
 
+// TODO -> IF LENGTH < []TAGS send Accept Btn esle Tags Btns				<--------
+
 func init() {
 	selector.Inline(selector.Row(acceptBtn, refreshBtn, dismissBtn))
 	//selector.Split(3, selector.Row(acceptBtn, refreshBtn, dismissBtn))
@@ -63,6 +65,7 @@ func OnReviewMediaContent() (interface{}, telebot.HandlerFunc) {
 		var er error
 		if ok := FindAllMedia(); ok != nil && len(ok) > 0 {
 			for _, i := range ok {
+				dismissBtn.Data = i.UniqueID //TODO <-------------------------
 				if _, err := ctx.Bot().Copy(ctx.Sender(), i, selector); err != nil {
 					_ = RemoveMediaByID(i.UniqueID) //TODO ERROR HANDLE
 					er = err
@@ -118,7 +121,7 @@ func OnAcceptMediaButton() (interface{}, telebot.HandlerFunc) {
 			return err
 		}
 		RemoveMediaByID(msg.UniqueID)
-		AddMediaToFeed(msg)
+		AddMediaToFeed(msg) //TODO CHANGE type TO FeedMessage
 		updateInvalidMediaPost(ctx)
 
 		//ctx.Delete()
@@ -165,11 +168,21 @@ func updateInvalidMediaPost(ctx telebot.Context) {
 		return
 	}
 	// <- TODO get first media from review
-	//🤷 На этом всё, приходи ещё...🚩
-	ctx.Bot().EditMedia(ctx.Message(), &telebot.Photo{
-		Caption: "PRESSED",
-		File: telebot.File{
-			FileID:   refreshMedia.FileID,
-			UniqueID: refreshMedia.UniqueID,
-		}}, selector)
+	for refreshMedia != nil {
+
+		_, err := ctx.Bot().EditMedia(ctx.Message(), &telebot.Photo{
+			Caption: "PRESSED",
+			File: telebot.File{
+				FileID:   refreshMedia.FileID,
+				UniqueID: refreshMedia.UniqueID,
+			}}, selector)
+		if err != nil {
+			RemoveMediaByID(refreshMedia.UniqueID)
+		} else {
+			return
+		}
+		refreshMedia = FindFirstMedia()
+	}
+	ctx.Delete()
+
 }
