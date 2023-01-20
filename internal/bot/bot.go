@@ -1,10 +1,7 @@
 package bot
 
 import (
-	"context"
-	"fmt"
 	"github.com/gaasb/telegram-content-feed/pkg/utils"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
 	"gopkg.in/telebot.v3"
 	"log"
 )
@@ -26,20 +23,22 @@ func Setup() {
 	build()
 	setChannel()
 	instanceDatabaseCollections()
-	creator, _ = clients.BotClient.ChatByUsername("xgaax")
-
-	fmt.Println(clients.DatabaseClient.Ping(context.TODO(), readpref.Primary()))
-	clients.BotClient.Handle("/start", func(c telebot.Context) error {
-		return c.Send("Hello")
-	})
+	_ = clients.BotClient.SetCommands("/start start")
+	//creator, _ = clients.BotClient.ChatByUsername("@xgaax")
+	//fmt.Println(clients.BotClient.AdminsOf(creator))
 
 	clients.BotClient.Handle(OnDice())
 	clients.BotClient.Handle(OnMedia())
+	clients.BotClient.Handle(OnAddTag())
+	clients.BotClient.Handle(HandleText())
 	clients.BotClient.Handle(OnReviewMediaContent())
 	clients.BotClient.Handle(OnAcceptMediaButton())
 	clients.BotClient.Handle(OnDismissMediaButton())
 	clients.BotClient.Handle(OnRefreshButton())
 
+	clients.BotClient.Handle(TagNormalButton())
+	clients.BotClient.Handle(TagAdditionalButton())
+	clients.BotClient.Handle(TagEventButton())
 	clients.BotClient.Start()
 }
 
@@ -54,4 +53,11 @@ func setChannel() {
 	}
 	channel = chat
 	database = db
+}
+func OnStart() (interface{}, telebot.HandlerFunc) {
+	return StartCommand, func(ctx telebot.Context) error {
+		keyboad := &telebot.ReplyMarkup{ReplyKeyboard: [][]telebot.ReplyButton{}}
+		ctx.Bot().EditReplyMarkup(ctx.Message(), keyboad)
+		return nil
+	}
 }

@@ -3,20 +3,22 @@ package bot
 import (
 	"fmt"
 	"gopkg.in/telebot.v3"
+	"strconv"
 )
 
 type Command string
 type Query string
 
 var creator *telebot.Chat
-var messages []*StoredMessage //MESSAGES FOR REVIEW
 
 const (
+	StartCommand               = "/start"
 	BanCommand         Command = "/ban"
 	CreateEventCommand Command = "/create_event"
 	Dice               Command = "/dice"
 	ReviewMediaContent         = "/start_review"
 	AddTag                     = "/add_tag"
+	AddTagKeyboard             = "⚙ AddTag"
 )
 const (
 	UpdateTagQuery Query = "update_tag"
@@ -44,15 +46,6 @@ func init() {
 
 func OnDice() (interface{}, telebot.HandlerFunc) {
 	var f = func(ctx telebot.Context) error {
-		var err error
-
-		if len(messages) > 0 {
-			_, err = ctx.Bot().Copy(ctx.Sender(), messages[0])
-		}
-		if err != nil {
-			ctx.Send("err")
-			return err
-		}
 		var Cube = &telebot.Dice{Type: "🎲"}
 		Cube.Send(ctx.Bot(), ctx.Recipient(), nil)
 		return nil
@@ -61,11 +54,12 @@ func OnDice() (interface{}, telebot.HandlerFunc) {
 }
 
 func OnReviewMediaContent() (interface{}, telebot.HandlerFunc) {
-	var fun = func(ctx telebot.Context) error {
+	return ReviewMediaContent, func(ctx telebot.Context) error {
 		var er error
 		if ok := FindAllMedia(); ok != nil && len(ok) > 0 {
 			for _, i := range ok {
 				dismissBtn.Data = i.UniqueID //TODO <-------------------------
+				//dismissBtn.Inline().
 				if _, err := ctx.Bot().Copy(ctx.Sender(), i, selector); err != nil {
 					_ = RemoveMediaByID(i.UniqueID) //TODO ERROR HANDLE
 					er = err
@@ -78,11 +72,10 @@ func OnReviewMediaContent() (interface{}, telebot.HandlerFunc) {
 		ctx.Send("No Media in Database")
 		return er
 	}
-	return ReviewMediaContent, fun
 }
 
 func OnMedia() (interface{}, telebot.HandlerFunc) {
-	var fun = func(ctx telebot.Context) error {
+	return MEDIA_TYPE_BY_DEFAULT, func(ctx telebot.Context) error {
 		var (
 			chatID, messageID = ctx.Message().MessageSig()
 			uniqueID          = ctx.Message().Photo.File.UniqueID
@@ -91,7 +84,7 @@ func OnMedia() (interface{}, telebot.HandlerFunc) {
 		)
 		replyErr := ctx.Reply("✅: Ok!")
 		if replyErr != nil {
-			ctx.Send("🔴: Not Found, file have been removed!")
+			ctx.Send("🔴: Not Found, probably file have been removed!")
 			return replyErr
 		}
 		if err := AddMedia(msg); err != nil {
@@ -101,42 +94,37 @@ func OnMedia() (interface{}, telebot.HandlerFunc) {
 		}
 		return nil
 	}
-	return MEDIA_TYPE_BY_DEFAULT, fun
+
 }
 func OnAcceptMediaButton() (interface{}, telebot.HandlerFunc) {
-	var fun = func(ctx telebot.Context) error {
-		var (
-			chatID, messageID = ctx.Message().MessageSig()
-			uniqueID          = ctx.Message().Photo.File.UniqueID
-			fileID            = ctx.Message().Photo.File.FileID
-			msg               = &MediaMessage{uniqueID, chatID, messageID, fileID}
-		)
-		if dbErr := FindMediaById(msg.UniqueID); dbErr != nil {
+	return &acceptBtn, func(ctx telebot.Context) error {
+		mediaMessage := NewMediaMessage(ctx)
+		if dbErr := FindMediaById(mediaMessage.UniqueID); dbErr != nil {
 			updateInvalidMediaPost(ctx)
 			fmt.Println("Already in Feed")
 			return nil
 		}
-		_, err := ctx.Bot().Copy(channel, msg)
+		channelMsg, err := ctx.Bot().Copy(channel, mediaMessage)
 		if err != nil {
 			return err
 		}
-		RemoveMediaByID(msg.UniqueID)
-		AddMediaToFeed(msg) //TODO CHANGE type TO FeedMessage
-		updateInvalidMediaPost(ctx)
 
-		//ctx.Delete()
+		RemoveMediaByID(mediaMessage.UniqueID)
+		mediaMessage.ChatID = channel.ID
+		mediaMessage.MessageID = strconv.Itoa(channelMsg.ID)
+		AddMediaToFeed(mediaMessage) //TODO CHANGE type TO FeedMessage
+		updateInvalidMediaPost(ctx)
 		return nil
 	}
-	return &acceptBtn, fun
 }
 func OnDismissMediaButton() (interface{}, telebot.HandlerFunc) {
-	var fun = func(ctx telebot.Context) error {
+	return &dismissBtn, func(ctx telebot.Context) error {
 		//RemoveMediaByID(ctx.Message().Photo.File.UniqueID)
 		//ctx.Delete()
 		updateInvalidMediaPost(ctx)
 		return nil
 	}
-	return &dismissBtn, fun
+
 }
 func OnAddTagCommand() (interface{}, telebot.HandlerFunc) {
 	return AddTag, func(context telebot.Context) error {
@@ -153,25 +141,59 @@ func OnRefreshButton() (interface{}, telebot.HandlerFunc) {
 			Height:  0,
 			Caption: "test",
 		})
+		// ctx.Bot().EditReplyMarkup(msg) TODO <=====================================================================
 		fmt.Println(err)
+		return err
+	}
+}
+func OnAddTag() (interface{}, telebot.HandlerFunc) {
+	return AddTag, func(ctx telebot.Context) error {
+		//menu := ctx.Bot().NewMarkup()
+		//menu.Inline(menu.Row(btn))
+		addMenu.ForceReply = true
+		addMenu.OneTimeKeyboard = true
+		addMenu.Reply(addMenu.Row(tagNormalBtn, tagAdditionalBtn, tagEventBtn))
+		ctx.Send("➕\tSelect what you want to add", addMenu)
 		return nil
 	}
 }
 
+func TagNormalButton() (interface{}, telebot.HandlerFunc) {
+	return &tagNormalBtn, func(ctx telebot.Context) error {
+		ctx.Send("🏷 Send text without whitespaces", telebot.ForceReply)
+		return nil
+	}
+}
+
+func TagAdditionalButton() (interface{}, telebot.HandlerFunc) {
+	return &tagAdditionalBtn, func(ctx telebot.Context) error {
+		ctx.Send("🎴 Send text without whitespaces", telebot.ForceReply)
+		return nil
+	}
+}
+
+func TagEventButton() (interface{}, telebot.HandlerFunc) {
+	return &tagEventBtn, func(ctx telebot.Context) error {
+		ctx.Send("Send text without whitespaces", telebot.ForceReply)
+		return nil
+	}
+}
+
+func HandleText() (interface{}, telebot.HandlerFunc) {
+	return telebot.OnText, func(ctx telebot.Context) error {
+		DoOnTagEvents(ctx)
+		return nil
+	}
+}
 func updateInvalidMediaPost(ctx telebot.Context) {
 	RemoveMediaByID(ctx.Message().Photo.File.UniqueID)
 	refreshMedia := FindFirstMedia()
 
-	if refreshMedia == nil {
-		ctx.Delete()
-		ctx.Send("🤷 Видимо на этом всё...🚩\nПопробуй обновить!\t" + ReviewMediaContent)
-		return
-	}
 	// <- TODO get first media from review
 	for refreshMedia != nil {
 
 		_, err := ctx.Bot().EditMedia(ctx.Message(), &telebot.Photo{
-			Caption: "PRESSED",
+			Caption: "от @asd\n#PRESSED\t#week",
 			File: telebot.File{
 				FileID:   refreshMedia.FileID,
 				UniqueID: refreshMedia.UniqueID,
@@ -184,5 +206,5 @@ func updateInvalidMediaPost(ctx telebot.Context) {
 		refreshMedia = FindFirstMedia()
 	}
 	ctx.Delete()
-
+	ctx.Send("🤷 Видимо на этом всё...🚩\nПопробуй обновить!\t" + ReviewMediaContent)
 }

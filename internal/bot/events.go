@@ -5,7 +5,6 @@ var (
 	// handler
 )
 
-func init() {
+func CreateEvent() {
 
-	//bot, err := telego.NewBot()
 }

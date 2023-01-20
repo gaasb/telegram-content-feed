@@ -1,5 +1,7 @@
 package bot
 
+import "gopkg.in/telebot.v3"
+
 const DEFAULT_ID = "_id"
 
 type StoredMessage struct {
@@ -13,6 +15,19 @@ type MediaMessage struct {
 	FileID    string `bson:"file_id", json:"file_id"`
 }
 
+func NewMediaMessage(ctx telebot.Context) *MediaMessage {
+	var (
+		messageID, chatID = ctx.Message().MessageSig()
+		uniqueID          = ctx.Message().Photo.File.UniqueID
+		fileID            = ctx.Message().Photo.File.FileID
+	)
+	return &MediaMessage{
+		UniqueID:  uniqueID,
+		MessageID: messageID,
+		ChatID:    chatID,
+		FileID:    fileID,
+	}
+}
 func (x MediaMessage) MessageSig() (string, int64) {
 	return x.MessageID, x.ChatID
 }
@@ -28,11 +43,19 @@ type FeedMessage struct {
 	VideosURL map[string]string
 	CreatedAt *string
 	ExpireAt  *string
+
+	Tag         *NormalTag
+	OptionalTag *TagsStorage
+	EventTag    *EventTag
 }
 
 func (x FeedMessage) MessageSig() (string, int64) {
 	return x.MessageID, x.ChatID
 }
+
+//func NewFeedMessage(msg *telebot.Message) *FeedMessage  {
+//	return FeedMessage{UniqueID: msg.Photo.UniqueID, MessageID: msg.ID}
+//}
 
 func editMessage() {
 	mess := StoredMessage{}

@@ -58,10 +58,16 @@ func RemoveMediaByID(id interface{}) error {
 	_, err := database.Collection(MEDIA_FOR_REVIEW_COLLECTION).DeleteOne(context.TODO(), bson.D{{"_id", id}})
 	return err
 }
+func InsertTag(tag *TagsStorage) error {
+	_, err := database.Collection(TAGS_COLLECTION).InsertOne(context.TODO(), tag)
+	return err
+}
 
 func instanceDatabaseCollections() {
 	_ = database.CreateCollection(context.TODO(), FEED_COLLECTION)
 	_ = database.CreateCollection(context.TODO(), POSTS_COLLECTION)
 	_ = database.CreateCollection(context.TODO(), USERS_WITH_ROLE_COLLECTION)
 	_ = database.CreateCollection(context.TODO(), MEDIA_FOR_REVIEW_COLLECTION)
+	_ = database.CreateCollection(context.TODO(), TAGS_COLLECTION)
+	createUniqueIndexForCaption()
 }
