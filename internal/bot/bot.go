@@ -24,7 +24,7 @@ func Setup() {
 	setChannel()
 	instanceDatabaseCollections()
 	_ = clients.BotClient.SetCommands("/start start")
-	//creator, _ = clients.BotClient.ChatByUsername("@xgaax")
+	creator, _ = clients.BotClient.ChatByUsername("@xgaax")
 	//fmt.Println(clients.BotClient.AdminsOf(creator))
 
 	clients.BotClient.Handle(OnDice())
@@ -36,6 +36,9 @@ func Setup() {
 	clients.BotClient.Handle(OnDismissMediaButton())
 	clients.BotClient.Handle(OnRefreshButton())
 
+	clients.BotClient.Handle(OnEdit())
+	clients.BotClient.Handle(RemoveTagHandler())
+	clients.BotClient.Handle(OnEditButton())
 	clients.BotClient.Handle(TagNormalButton())
 	clients.BotClient.Handle(TagAdditionalButton())
 	clients.BotClient.Handle(TagEventButton())

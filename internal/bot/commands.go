@@ -34,6 +34,9 @@ var (
 	acceptBtn  = selector.Data("✅ Accept", "accept", AcceptMedia)
 	refreshBtn = selector.Data("🔃 Refresh", "refresh", "refresh_media")
 	dismissBtn = selector.Data("❌ Dismiss", "dismiss", DismissMedia)
+
+	editButton = telebot.Btn{Text: "1", Unique: "et"}
+	homeBtn    = telebot.Btn{Text: "Home"}
 )
 
 // TODO -> IF LENGTH < []TAGS send Accept Btn esle Tags Btns				<--------
@@ -71,6 +74,32 @@ func OnReviewMediaContent() (interface{}, telebot.HandlerFunc) {
 		}
 		ctx.Send("No Media in Database")
 		return er
+	}
+}
+func OnEdit() (interface{}, telebot.HandlerFunc) {
+	return &editButton, func(ctx telebot.Context) error {
+		//newReply := ctx.Bot().NewMarkup()
+		if ctx.Data() != "et" {
+			//newReply.Inline(newReply.Split(3, []telebot.Btn{telebot.Btn{Text: "tes", Data: "1"}})...)
+			//ctx.Bot().EditReplyMarkup(ctx.Message(), newReply)
+			GenButtonsForEdit(ctx, ctx.Data())
+		}
+		return nil
+	}
+}
+func OnEditButton() (interface{}, telebot.HandlerFunc) {
+	return &editBtn, func(ctx telebot.Context) error {
+		uniqueValue := "et"
+		merkup := ctx.Bot().NewMarkup()
+		//editButton.Data = "test"
+		btns := []telebot.Btn{
+			{Text: NORMAL_TYPE, Unique: uniqueValue, Data: NORMAL_TYPE},
+			{Text: ADDITIONAL_TYPE, Unique: uniqueValue, Data: ADDITIONAL_TYPE},
+			{Text: EVENT_TYPE, Unique: uniqueValue, Data: EVENT_TYPE},
+		}
+		merkup.Inline(merkup.Row(btns...))
+		ctx.Send("What type", merkup)
+		return nil
 	}
 }
 
@@ -150,9 +179,9 @@ func OnAddTag() (interface{}, telebot.HandlerFunc) {
 	return AddTag, func(ctx telebot.Context) error {
 		//menu := ctx.Bot().NewMarkup()
 		//menu.Inline(menu.Row(btn))
-		addMenu.ForceReply = true
-		addMenu.OneTimeKeyboard = true
-		addMenu.Reply(addMenu.Row(tagNormalBtn, tagAdditionalBtn, tagEventBtn))
+		//addMenu.ForceReply = true
+		//addMenu.OneTimeKeyboard = true
+		addMenu.Reply(addMenu.Row(tagNormalBtn, tagAdditionalBtn, tagEventBtn), addMenu.Row(homeBtn, editBtn))
 		ctx.Send("➕\tSelect what you want to add", addMenu)
 		return nil
 	}
@@ -174,7 +203,7 @@ func TagAdditionalButton() (interface{}, telebot.HandlerFunc) {
 
 func TagEventButton() (interface{}, telebot.HandlerFunc) {
 	return &tagEventBtn, func(ctx telebot.Context) error {
-		ctx.Send("Send text without whitespaces", telebot.ForceReply)
+		ctx.Send("🏆 Send text without whitespaces", telebot.ForceReply)
 		return nil
 	}
 }

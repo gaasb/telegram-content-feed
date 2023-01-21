@@ -62,6 +62,21 @@ func InsertTag(tag *TagsStorage) error {
 	_, err := database.Collection(TAGS_COLLECTION).InsertOne(context.TODO(), tag)
 	return err
 }
+func GetTagsByCaptionValue(value string) ([]*TagsStorage, error) {
+	var result []*TagsStorage
+	rawResult, err := database.Collection(TAGS_COLLECTION).Find(context.TODO(), bson.D{{"type", value}})
+	if err != nil {
+		return nil, err
+	}
+	rawResult.All(context.TODO(), &result)
+	fmt.Println(result)
+	return result, nil
+}
+func RemoveTagById(id interface{}) error {
+	_, err := database.Collection(TAGS_COLLECTION).DeleteOne(context.TODO(), bson.D{{"_id", id}})
+	fmt.Println(err)
+	return err
+}
 
 func instanceDatabaseCollections() {
 	_ = database.CreateCollection(context.TODO(), FEED_COLLECTION)
