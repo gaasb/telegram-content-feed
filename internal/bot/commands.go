@@ -98,7 +98,7 @@ func OnEditButton() (interface{}, telebot.HandlerFunc) {
 			{Text: EVENT_TYPE, Unique: uniqueValue, Data: EVENT_TYPE},
 		}
 		merkup.Inline(merkup.Row(btns...))
-		ctx.Send("What type", merkup)
+		ctx.Send("Select tag type", merkup)
 		return nil
 	}
 }

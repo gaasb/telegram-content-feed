@@ -109,10 +109,13 @@ func DoOnTagEvents(ctx telebot.Context) {
 }
 func GenButtonsForEdit(ctx telebot.Context, data string) {
 	values, err := GetTagsByCaptionValue(data)
+	if values == nil {
+		ctx.Send(fmt.Sprintf("%s is empty", data))
+	}
 	newReply := ctx.Bot().NewMarkup()
 	var buttons []telebot.Btn
 	outputText := strings.Builder{}
-	fmt.Println(values)
+	outputText.WriteString("⬇️Select tag value⬇️\n\n")
 	if err != nil || len(values) <= 0 {
 		return
 	}
@@ -134,7 +137,6 @@ func RemoveTagHandler() (interface{}, telebot.HandlerFunc) {
 			err := ctx.Delete()
 			return err
 		case "/r":
-			fmt.Println("")
 			if err := RemoveTagById(data[1]); err == nil {
 				ctx.Edit("Successfully deleted")
 				return err
@@ -142,7 +144,7 @@ func RemoveTagHandler() (interface{}, telebot.HandlerFunc) {
 				return err
 			}
 		case "/u":
-			fmt.Println("")
+			//TODO <-----------------------------------------------------
 			break
 		default:
 			reply := ctx.Bot().NewMarkup()
