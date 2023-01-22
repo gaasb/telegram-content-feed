@@ -21,10 +21,14 @@ const (
 	EVENT_TYPE      = "event"
 )
 const (
-	REMOVE_TAG_UNIQUE = "remove_tag"
+	ACTION_BUTTON_UNIQUE = "remove_tag"
+	ACTION_CANCEL        = "/c"
+	ACTION_UPDATE        = "/u"
+	ACTION_REMOVE        = "/r"
+	ACTION_EMPTY         = ""
 )
 
-var removeTagButton = telebot.Btn{Unique: REMOVE_TAG_UNIQUE}
+var removeTagButton = telebot.Btn{Unique: ACTION_BUTTON_UNIQUE}
 
 var (
 	TAG_NORMAL     NormalTag     = "🏷"
@@ -37,7 +41,13 @@ var (
 		string(TAG_ADDITIONAL): &TAG_ADDITIONAL,
 		string(TAG_EVENT):      &TAG_EVENT,
 	}
-	tagPattenr = regexp.MustCompile(`^[a-zA-Zа-яА-Я]+$`)
+	tagActions = map[string]func(ctx telebot.Context) error{
+		ACTION_CANCEL: actionCancel,
+		ACTION_UPDATE: actionUpdate,
+		ACTION_REMOVE: actionRemove,
+		ACTION_EMPTY:  actionEmpty,
+	}
+	tagPattern = regexp.MustCompile(`^[a-zA-Zа-яА-Я]+$`)
 )
 
 var (
@@ -63,6 +73,7 @@ type TagsStorage struct {
 
 type Tager interface {
 	Append(tag string) error
+	GetReplyKeyboard() *telebot.ReplyMarkup
 	//Message()
 }
 
@@ -75,6 +86,12 @@ func (t *AdditionalTag) Append(tag string) error {
 func (t *EventTag) Append(tag string) error {
 	return InsertTag(&TagsStorage{Type: EVENT_TYPE, CaptionName: tag})
 }
+
+func (t *NormalTag) GetReplyKeyboard() *telebot.ReplyMarkup { return replyKeyboard(NORMAL_TYPE) }
+func (t *AdditionalTag) GetReplyKeyboard() *telebot.ReplyMarkup {
+	return replyKeyboard(ADDITIONAL_TYPE)
+}
+func (t *EventTag) GetReplyKeyboard() *telebot.ReplyMarkup { return replyKeyboard(EVENT_TYPE) }
 
 func onEmoji(emoji string) (Tager, error) {
 	var result = tagTypes[emoji]
@@ -94,7 +111,7 @@ func DoOnTagEvents(ctx telebot.Context) {
 		emoji := parseEmoji(msg.ReplyTo.Text)
 		if tag, ok := onEmoji(emoji); ok == nil && len(msg.Text) > 0 {
 			text := strings.ToLower(msg.Text)
-			if tagPattenr.MatchString(text) {
+			if tagPattern.MatchString(text) {
 				if err := tag.Append(text); err != nil {
 					ctx.Send(emoji+" Tag already in storage", telebot.ForceReply)
 					return
@@ -108,24 +125,86 @@ func DoOnTagEvents(ctx telebot.Context) {
 	}
 }
 func GenButtonsForEdit(ctx telebot.Context, data string) {
-	values, err := GetTagsByCaptionValue(data)
-	if values == nil {
+	tagsStorageList, err := GetTagsByTagType(data)
+	if tagsStorageList == nil || len(tagsStorageList) <= 0 || err != nil {
 		ctx.Send(fmt.Sprintf("%s is empty", data))
+		return
 	}
-	newReply := ctx.Bot().NewMarkup()
+	instanceButtonsOfTags(ctx, tagsStorageList)
+}
+func instanceButtonsOfTags(ctx telebot.Context, list []*TagsStorage) {
+	newReply, outputText := genButtons(list)
+	ctx.Edit(outputText, newReply)
+}
+func genButtons(list []*TagsStorage) (*telebot.ReplyMarkup, string) {
+	var replyMarkup = new(telebot.ReplyMarkup)
 	var buttons []telebot.Btn
 	outputText := strings.Builder{}
 	outputText.WriteString("⬇️Select tag value⬇️\n\n")
-	if err != nil || len(values) <= 0 {
-		return
-	}
-	for i, item := range values {
-		buttons = append(buttons, telebot.Btn{Unique: REMOVE_TAG_UNIQUE, Text: strconv.Itoa(i), Data: item.Id.String() + "\t"})
+	for i, item := range list {
+		buttons = append(buttons,
+			telebot.Btn{
+				Unique: ACTION_BUTTON_UNIQUE,
+				Text:   strconv.Itoa(i),
+				Data:   fmt.Sprintf("%s\t", item.Id.Hex()),
+			})
 		outputText.WriteString(fmt.Sprintf("%o:️\t%s\n", i, item.CaptionName))
 	}
-	newReply.Inline(newReply.Split(4, buttons)...)
-	ctx.Edit(outputText.String(), newReply)
+	replyMarkup.Inline(replyMarkup.Split(4, buttons)...)
+	return replyMarkup, outputText.String()
 }
+
+func onAcceptBtnController(ctx telebot.Context) bool {
+	data := strings.Split(ctx.Data(), "\t")
+	switch len(data) {
+	case 4:
+		ctx.EditCaption(ctx.Data())
+		return true
+	case 2:
+		ctx.Bot().EditReplyMarkup(ctx.Message(), tagTypes[string(TAG_ADDITIONAL)].GetReplyKeyboard())
+		fmt.Println(ctx.Data())
+		return false
+	default:
+		return true
+	}
+}
+
+func replyKeyboard(data string) *telebot.ReplyMarkup {
+	var replyMarkup = new(telebot.ReplyMarkup)
+	var buttons []telebot.Btn
+	var list []*TagsStorage
+	list, _ = GetTagsByTagType(data)
+	buttons = append(buttons, acceptBtn, refreshBtn, dismissBtn)
+	if list != nil {
+		for _, item := range list {
+			buttons = append(buttons, telebot.Btn{Text: item.CaptionName, Unique: AcceptMedia, Data: fmt.Sprintf("%s\t%s", data, item.CaptionName)})
+		}
+	}
+	replyMarkup.Inline(replyMarkup.Split(3, buttons)...)
+	return replyMarkup
+
+}
+func replyKeyboardWithContext(data string, ctx telebot.Context) *telebot.ReplyMarkup {
+	var replyMarkup = new(telebot.ReplyMarkup)
+	var buttons []telebot.Btn
+	var list []*TagsStorage
+	list, _ = GetTagsByTagType(data)
+	buttons = append(buttons, acceptBtn, refreshBtn, dismissBtn)
+	if list != nil {
+		for _, item := range list {
+			buttons = append(buttons, telebot.Btn{Text: item.CaptionName, Unique: AcceptMedia, Data: fmt.Sprintf("%s\t%s\t%s", ctx.Data(), data, item.CaptionName)})
+		}
+	}
+	replyMarkup.Inline(replyMarkup.Split(3, buttons)...)
+	return replyMarkup
+
+}
+
+func actionCancel(ctx telebot.Context) error { err := ctx.Delete(); return err }
+func actionUpdate(ctx telebot.Context) error { return nil }
+func actionRemove(ctx telebot.Context) error { return nil }
+func actionEmpty(ctx telebot.Context) error  { return nil }
+
 func RemoveTagHandler() (interface{}, telebot.HandlerFunc) {
 	return &removeTagButton, func(ctx telebot.Context) error {
 		data := strings.Split(ctx.Data(), "\t")
@@ -133,32 +212,36 @@ func RemoveTagHandler() (interface{}, telebot.HandlerFunc) {
 			return errors.New("empty data in remove tag button")
 		}
 		switch data[0] {
-		case "cancel":
+		case ACTION_CANCEL:
 			err := ctx.Delete()
 			return err
-		case "/r":
+		case ACTION_REMOVE:
 			if err := RemoveTagById(data[1]); err == nil {
 				ctx.Edit("Successfully deleted")
 				return err
 			} else {
+				ctx.Send("Cant delete")
 				return err
 			}
-		case "/u":
+		case ACTION_UPDATE:
+			ctx.Send("Send edited value", telebot.ForceReply)
 			//TODO <-----------------------------------------------------
 			break
 		default:
 			reply := ctx.Bot().NewMarkup()
 			reply.Inline(reply.Split(2, []telebot.Btn{
-				telebot.Btn{Text: "Update", Data: "/u\t" + ctx.Data(), Unique: REMOVE_TAG_UNIQUE},
-				telebot.Btn{Text: "Remove", Data: "/r\t" + ctx.Data(), Unique: REMOVE_TAG_UNIQUE},
-				telebot.Btn{Text: "Cancel", Data: "cancel", Unique: REMOVE_TAG_UNIQUE}},
+				{Text: "Update", Data: splitData(ACTION_UPDATE) + ctx.Data(), Unique: ACTION_BUTTON_UNIQUE},
+				{Text: "Remove", Data: splitData(ACTION_REMOVE) + ctx.Data(), Unique: ACTION_BUTTON_UNIQUE},
+				{Text: "Cancel", Data: splitData(ACTION_CANCEL), Unique: ACTION_BUTTON_UNIQUE}},
 			)...)
 			ctx.Edit("Select action", reply)
 		}
 		return nil
 	}
 }
-
+func splitData(action string) string {
+	return action + "\t"
+}
 func createUniqueIndexForCaption() {
 	database.Collection("").Indexes().CreateOne(context.TODO(), mongo.IndexModel{Keys: bson.M{"caption_name": 1}, Options: options.Index().SetUnique(true)})
 }

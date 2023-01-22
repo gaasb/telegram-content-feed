@@ -11,7 +11,7 @@ import (
 // MEDIA_TYPE_BY_DEFAULT = telebot.OnMedia
 const (
 	CHANNEL_ID            = "CHANNEL_ID"
-	MEDIA_TYPE_BY_DEFAULT = telebot.OnPhoto //telebot.OnMedia <- For any media
+	MEDIA_TYPE_BY_DEFAULT = telebot.OnPhoto //telebot.OnMedia
 )
 
 var (
@@ -36,7 +36,7 @@ func Setup() {
 	clients.BotClient.Handle(OnDismissMediaButton())
 	clients.BotClient.Handle(OnRefreshButton())
 
-	clients.BotClient.Handle(OnEdit())
+	clients.BotClient.Handle(OnEditAction())
 	clients.BotClient.Handle(RemoveTagHandler())
 	clients.BotClient.Handle(OnEditButton())
 	clients.BotClient.Handle(TagNormalButton())

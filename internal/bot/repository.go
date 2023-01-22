@@ -2,8 +2,10 @@ package bot
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -62,7 +64,7 @@ func InsertTag(tag *TagsStorage) error {
 	_, err := database.Collection(TAGS_COLLECTION).InsertOne(context.TODO(), tag)
 	return err
 }
-func GetTagsByCaptionValue(value string) ([]*TagsStorage, error) {
+func GetTagsByTagType(value string) ([]*TagsStorage, error) {
 	var result []*TagsStorage
 	rawResult, err := database.Collection(TAGS_COLLECTION).Find(context.TODO(), bson.D{{"type", value}})
 	if err != nil {
@@ -72,8 +74,12 @@ func GetTagsByCaptionValue(value string) ([]*TagsStorage, error) {
 	fmt.Println(result)
 	return result, nil
 }
-func RemoveTagById(id interface{}) error {
-	_, err := database.Collection(TAGS_COLLECTION).DeleteOne(context.TODO(), bson.D{{"_id", id}})
+func RemoveTagById(hexValue string) error {
+	object, objectErr := primitive.ObjectIDFromHex(hexValue)
+	if objectErr != nil {
+		return errors.New("Invalid hex value for instance objectId in remove tag ")
+	}
+	_, err := database.Collection(TAGS_COLLECTION).DeleteOne(context.TODO(), bson.D{{"_id", object}})
 	fmt.Println(err)
 	return err
 }

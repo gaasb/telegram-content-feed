@@ -22,8 +22,9 @@ const (
 )
 const (
 	UpdateTagQuery Query = "update_tag"
-	AcceptMedia          = "accept_media|"
-	DismissMedia         = "dismiss_media|"
+	AcceptMedia          = "accept"
+	DismissMedia         = "dismiss"
+	RefreshMedia         = "refresh"
 )
 
 var cmd map[Command]func() (interface{}, telebot.HandlerFunc)
@@ -31,9 +32,9 @@ var cmd map[Command]func() (interface{}, telebot.HandlerFunc)
 var (
 	selector = &telebot.ReplyMarkup{}
 
-	acceptBtn  = selector.Data("✅ Accept", "accept", AcceptMedia)
-	refreshBtn = selector.Data("🔃 Refresh", "refresh", "refresh_media")
-	dismissBtn = selector.Data("❌ Dismiss", "dismiss", DismissMedia)
+	acceptBtn  = selector.Data("✅ Accept", AcceptMedia)
+	refreshBtn = selector.Data("🔃 Refresh", DismissMedia)
+	dismissBtn = selector.Data("❌ Dismiss", RefreshMedia)
 
 	editButton = telebot.Btn{Text: "1", Unique: "et"}
 	homeBtn    = telebot.Btn{Text: "Home"}
@@ -60,10 +61,11 @@ func OnReviewMediaContent() (interface{}, telebot.HandlerFunc) {
 	return ReviewMediaContent, func(ctx telebot.Context) error {
 		var er error
 		if ok := FindAllMedia(); ok != nil && len(ok) > 0 {
+			replyMarkup := tagTypes[string(TAG_NORMAL)].GetReplyKeyboard()
 			for _, i := range ok {
 				dismissBtn.Data = i.UniqueID //TODO <-------------------------
 				//dismissBtn.Inline().
-				if _, err := ctx.Bot().Copy(ctx.Sender(), i, selector); err != nil {
+				if _, err := ctx.Bot().Copy(ctx.Sender(), i, replyMarkup); err != nil {
 					_ = RemoveMediaByID(i.UniqueID) //TODO ERROR HANDLE
 					er = err
 				} else {
@@ -76,12 +78,9 @@ func OnReviewMediaContent() (interface{}, telebot.HandlerFunc) {
 		return er
 	}
 }
-func OnEdit() (interface{}, telebot.HandlerFunc) {
+func OnEditAction() (interface{}, telebot.HandlerFunc) {
 	return &editButton, func(ctx telebot.Context) error {
-		//newReply := ctx.Bot().NewMarkup()
 		if ctx.Data() != "et" {
-			//newReply.Inline(newReply.Split(3, []telebot.Btn{telebot.Btn{Text: "tes", Data: "1"}})...)
-			//ctx.Bot().EditReplyMarkup(ctx.Message(), newReply)
 			GenButtonsForEdit(ctx, ctx.Data())
 		}
 		return nil
@@ -127,6 +126,9 @@ func OnMedia() (interface{}, telebot.HandlerFunc) {
 }
 func OnAcceptMediaButton() (interface{}, telebot.HandlerFunc) {
 	return &acceptBtn, func(ctx telebot.Context) error {
+		if !onAcceptBtnController(ctx) {
+			return nil
+		}
 		mediaMessage := NewMediaMessage(ctx)
 		if dbErr := FindMediaById(mediaMessage.UniqueID); dbErr != nil {
 			updateInvalidMediaPost(ctx)
@@ -177,10 +179,6 @@ func OnRefreshButton() (interface{}, telebot.HandlerFunc) {
 }
 func OnAddTag() (interface{}, telebot.HandlerFunc) {
 	return AddTag, func(ctx telebot.Context) error {
-		//menu := ctx.Bot().NewMarkup()
-		//menu.Inline(menu.Row(btn))
-		//addMenu.ForceReply = true
-		//addMenu.OneTimeKeyboard = true
 		addMenu.Reply(addMenu.Row(tagNormalBtn, tagAdditionalBtn, tagEventBtn), addMenu.Row(homeBtn, editBtn))
 		ctx.Send("➕\tSelect what you want to add", addMenu)
 		return nil
@@ -219,14 +217,14 @@ func updateInvalidMediaPost(ctx telebot.Context) {
 	refreshMedia := FindFirstMedia()
 
 	// <- TODO get first media from review
+	replyMarkup := tagTypes[string(TAG_NORMAL)].GetReplyKeyboard()
 	for refreshMedia != nil {
-
 		_, err := ctx.Bot().EditMedia(ctx.Message(), &telebot.Photo{
 			Caption: "от @asd\n#PRESSED\t#week",
 			File: telebot.File{
 				FileID:   refreshMedia.FileID,
 				UniqueID: refreshMedia.UniqueID,
-			}}, selector)
+			}}, replyMarkup)
 		if err != nil {
 			RemoveMediaByID(refreshMedia.UniqueID)
 		} else {
