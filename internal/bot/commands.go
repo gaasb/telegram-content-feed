@@ -25,6 +25,7 @@ const (
 	AcceptMedia          = "accept"
 	DismissMedia         = "dismiss"
 	RefreshMedia         = "refresh"
+	BackBtn              = "back"
 )
 
 var cmd map[Command]func() (interface{}, telebot.HandlerFunc)
@@ -38,6 +39,7 @@ var (
 
 	editButton = telebot.Btn{Text: "1", Unique: "et"}
 	homeBtn    = telebot.Btn{Text: "Home"}
+	backBtn    = telebot.Btn{Text: "Back"}
 )
 
 // TODO -> IF LENGTH < []TAGS send Accept Btn esle Tags Btns				<--------
@@ -61,7 +63,7 @@ func OnReviewMediaContent() (interface{}, telebot.HandlerFunc) {
 	return ReviewMediaContent, func(ctx telebot.Context) error {
 		var er error
 		if ok := FindAllMedia(); ok != nil && len(ok) > 0 {
-			replyMarkup := tagTypes[string(TAG_NORMAL)].GetReplyKeyboard()
+			replyMarkup := tagTypes[string(TAG_NORMAL)].GetReplyKeyboard(nil)
 			for _, i := range ok {
 				dismissBtn.Data = i.UniqueID //TODO <-------------------------
 				//dismissBtn.Inline().
@@ -217,10 +219,9 @@ func updateInvalidMediaPost(ctx telebot.Context) {
 	refreshMedia := FindFirstMedia()
 
 	// <- TODO get first media from review
-	replyMarkup := tagTypes[string(TAG_NORMAL)].GetReplyKeyboard()
+	replyMarkup := tagTypes[string(TAG_NORMAL)].GetReplyKeyboard(nil)
 	for refreshMedia != nil {
 		_, err := ctx.Bot().EditMedia(ctx.Message(), &telebot.Photo{
-			Caption: "от @asd\n#PRESSED\t#week",
 			File: telebot.File{
 				FileID:   refreshMedia.FileID,
 				UniqueID: refreshMedia.UniqueID,
