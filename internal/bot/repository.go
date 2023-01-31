@@ -14,9 +14,9 @@ const (
 
 	FEED_COLLECTION             = "feed"
 	POSTS_COLLECTION            = "posts"
-	USERS_WITH_ROLE_COLLECTION  = "users"
 	TAGS_COLLECTION             = "tags"
 	MEDIA_FOR_REVIEW_COLLECTION = "media_for_review"
+	USERS_WITH_ROLES_COLLECTION = "administrators"
 )
 
 var (
@@ -83,12 +83,35 @@ func RemoveTagById(hexValue string) error {
 	fmt.Println(err)
 	return err
 }
+func InsertAdministrator(user *Administrator) error {
+	if _, err := database.Collection(USERS_WITH_ROLES_COLLECTION).InsertOne(context.TODO(), user); err != nil {
+		return err
+	} else {
+		return nil
+	}
+}
+func FindAllAdministrators() map[int64][]UserType {
+	var result = map[int64][]UserType{}
+	var re []Administrator
+	rawResult, err := database.Collection(USERS_WITH_ROLES_COLLECTION).Find(context.TODO(), bson.M{})
+	if err != nil {
+		return nil
+	}
+	rawResult.All(context.TODO(), &re)
+	for _, item := range re {
+		result[item.UserID] = item.Rights
+	}
+	fmt.Println(result)
+	//maps.Copy(result, re[0])
+	//fmt.Println(result)
+	return result
+}
 
 func instanceDatabaseCollections() {
 	_ = database.CreateCollection(context.TODO(), FEED_COLLECTION)
 	_ = database.CreateCollection(context.TODO(), POSTS_COLLECTION)
-	_ = database.CreateCollection(context.TODO(), USERS_WITH_ROLE_COLLECTION)
 	_ = database.CreateCollection(context.TODO(), MEDIA_FOR_REVIEW_COLLECTION)
 	_ = database.CreateCollection(context.TODO(), TAGS_COLLECTION)
+	_ = database.CreateCollection(context.TODO(), USERS_WITH_ROLES_COLLECTION)
 	createUniqueIndexForCaption()
 }

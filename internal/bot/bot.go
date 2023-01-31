@@ -26,7 +26,8 @@ func Setup() {
 	_ = clients.BotClient.SetCommands("/start start")
 	creator, _ = clients.BotClient.ChatByUsername("@xgaax")
 	//fmt.Println(clients.BotClient.AdminsOf(creator))
-
+	//instanceMiddleware()
+	InitAllAdministrators()
 	clients.BotClient.Handle(OnDice())
 	clients.BotClient.Handle(OnMedia())
 	clients.BotClient.Handle(OnAddTag())
@@ -61,6 +62,25 @@ func OnStart() (interface{}, telebot.HandlerFunc) {
 	return StartCommand, func(ctx telebot.Context) error {
 		keyboad := &telebot.ReplyMarkup{ReplyKeyboard: [][]telebot.ReplyButton{}}
 		ctx.Bot().EditReplyMarkup(ctx.Message(), keyboad)
+		return nil
+	}
+}
+func instanceMiddleware() {
+	adminOnlyController = clients.BotClient.Group()
+	adminOnlyController.Use(testMittleware)
+	adminOnlyController.Handle(OnDice())
+}
+func testMittleware(next telebot.HandlerFunc) telebot.HandlerFunc {
+	return func(ctx telebot.Context) error {
+		if ctx.Sender().Username != "xgaax" {
+			return nil
+		}
+		return next(ctx)
+	}
+}
+func OnAddAdmin() (interface{}, telebot.HandlerFunc) {
+	return "/add_admin", func(ctx telebot.Context) error {
+
 		return nil
 	}
 }

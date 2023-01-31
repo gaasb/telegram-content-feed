@@ -8,6 +8,7 @@ import (
 
 type Command string
 type Query string
+type HandleFunc func(interface{}, telebot.Context) error
 
 var creator *telebot.Chat
 
@@ -50,13 +51,14 @@ func init() {
 	//selector.Split(8, selector.Row(refreshBtn))
 }
 
-func OnDice() (interface{}, telebot.HandlerFunc) {
+func OnDice() (interface{}, telebot.HandlerFunc, telebot.MiddlewareFunc) {
 	var f = func(ctx telebot.Context) error {
+		//fmt.Println(AddAdmin(ctx.Sender().ID, PostEdit, PostDelete))
 		var Cube = &telebot.Dice{Type: "🎲"}
 		Cube.Send(ctx.Bot(), ctx.Recipient(), nil)
 		return nil
 	}
-	return string(Dice), f
+	return string(Dice), f, ForAdministrators(PostDelete)
 }
 
 func OnReviewMediaContent() (interface{}, telebot.HandlerFunc) {
